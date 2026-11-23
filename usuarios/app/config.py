@@ -1,19 +1,14 @@
-"""Configurações lidas das variáveis de ambiente."""
-import logging
+"""Configurações do serviço de Usuários, lidas das variáveis de ambiente."""
 import os
-import secrets
 
-log = logging.getLogger("helpdesk")
+# Cada serviço tem o seu próprio banco
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/usuarios.db")
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./helpdesk.db")
-
-# Segredo usado para assinar os tokens JWT. Em produção, defina JWT_SEGREDO.
-# Sem ele, um segredo aleatório é gerado a cada início (os logins expiram ao reiniciar).
-JWT_SEGREDO = os.getenv("JWT_SEGREDO") or ""
+# Segredo que assina os tokens JWT. Tem de ser o MESMO em todos os serviços
+# e vem sempre do ambiente (.env): sem ele, o serviço não sobe.
+JWT_SEGREDO = os.getenv("JWT_SEGREDO", "")
 if len(JWT_SEGREDO) < 32:
-    if JWT_SEGREDO:
-        log.warning("JWT_SEGREDO tem menos de 32 caracteres; usando um segredo aleatório.")
-    JWT_SEGREDO = secrets.token_urlsafe(48)
+    raise RuntimeError("Defina JWT_SEGREDO com pelo menos 32 caracteres (veja o .env.example).")
 
 JWT_ALGORITMO = "HS256"
 JWT_EMISSOR = "helpdesk-ti"
