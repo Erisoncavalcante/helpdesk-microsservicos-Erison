@@ -1,22 +1,37 @@
+# VERSÃO DE TESTE: as portas 8001 a 8003 são temporárias, para testar cada serviço.
+# Quando o gateway entrar, elas saem: só o gateway fica exposto.
 services:
-  helpdesk:
-    build: .
+  usuarios:
+    build: ./usuarios
+    env_file: .env
     ports:
-      - "127.0.0.1:8000:8000"   # só acessível pelo próprio computador
-    env_file:
-      - path: .env
-        required: false
-    environment:
-      DADOS_EXEMPLO: ${DADOS_EXEMPLO:-1}
+      - "8001:8000"
     volumes:
-      - dados:/dados
-    read_only: true
-    tmpfs:
-      - /tmp
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
+      - usuarios_data:/app/data
+
+  inventario:
+    build: ./inventario
+    env_file: .env
+    ports:
+      - "8002:8000"
+    volumes:
+      - inventario_data:/app/data
+
+  chamados:
+    build: ./chamados
+    env_file: .env
+    environment:
+      URL_USUARIOS: http://usuarios:8000
+      URL_INVENTARIO: http://inventario:8000
+    ports:
+      - "8003:8000"
+    volumes:
+      - chamados_data:/app/data
+    depends_on:
+      - usuarios
+      - inventario
 
 volumes:
-  dados:
+  usuarios_data:
+  inventario_data:
+  chamados_data:
