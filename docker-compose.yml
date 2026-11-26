@@ -1,11 +1,10 @@
-# VERSÃO DE TESTE: as portas 8001 a 8003 são temporárias, para testar cada serviço.
-# Quando o gateway entrar, elas saem: só o gateway fica exposto.
+# VERSÃO DE TESTE: as portas 8001 a 8003 são temporárias.
+# Quando o gateway entrar, só ele ficará exposto.
+
 services:
   usuarios:
     build: ./usuarios
     env_file: .env
-    ports:
-      - "8001:8000"
     volumes:
       - usuarios_data:/app/data
 
@@ -30,6 +29,18 @@ services:
     depends_on:
       - usuarios
       - inventario
+
+  gateway:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./app/web:/usr/share/nginx/html:ro
+    depends_on:
+      - usuarios
+      - inventario
+      - chamados
 
 volumes:
   usuarios_data:
