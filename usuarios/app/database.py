@@ -1,4 +1,4 @@
-"""Conexão com o banco de dados (um único banco para todo o monólito)."""
+"""Conexão com o banco de dados do serviço de Usuarios (um banco só deste serviço)."""
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 

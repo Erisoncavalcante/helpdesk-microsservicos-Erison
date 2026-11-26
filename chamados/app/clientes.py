@@ -1,5 +1,4 @@
-class ServicoIndisponivel(Exception):
-    """Outro serviço não respondeu a tempo ou está fora do ar.""""""Chamadas HTTP aos outros serviços (Usuários e Inventário).
+"""Chamadas HTTP aos outros serviços (Usuários e Inventário).
 
 Sempre repassam o token do usuário e nunca esperam mais que o timeout.
 """
