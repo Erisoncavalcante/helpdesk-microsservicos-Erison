@@ -22,21 +22,22 @@ flowchart TB
     SC --> BC[(Banco de chamados)]
 ```
 
-| Serviço | Responsabilidade | Banco |
-|---|---|---|
-| **gateway** | Único ponto de entrada (porta 8000). Serve a tela e encaminha cada rota ao serviço certo. | nenhum |
-| **usuarios** | Cadastro de usuários e login (emite o token JWT). | `usuarios.db` |
-| **inventario** | Cadastro de equipamentos (ativos). | `inventario.db` |
-| **chamados** | Chamados, comentários, SLA, painel e notificações. | `chamados.db` |
+| Serviço        | Responsabilidade                                                                          | Banco           |
+| -------------- | ----------------------------------------------------------------------------------------- | --------------- |
+| **gateway**    | Único ponto de entrada (porta 8000). Serve a tela e encaminha cada rota ao serviço certo. | nenhum          |
+| **usuarios**   | Cadastro de usuários e login (emite o token JWT).                                         | `usuarios.db`   |
+| **inventario** | Cadastro de equipamentos (ativos).                                                        | `inventario.db` |
+| **chamados**   | Chamados, comentários, SLA, painel e notificações.                                        | `chamados.db`   |
 
 ### Rotas do gateway
 
-| Rota | Serviço |
-|---|---|
-| `/` | Tela (arquivos estáticos) |
-| `/auth`, `/usuarios` | usuarios |
-| `/ativos` | inventario |
-| `/chamados`, `/notificacoes` | chamados |
+| Rota                                                                | Serviço                             |
+| ------------------------------------------------------------------- | ----------------------------------- |
+| `/`                                                                 | Tela (arquivos estáticos)           |
+| `/auth`, `/usuarios`                                                | usuarios                            |
+| `/ativos`                                                           | inventario                          |
+| `/chamados`, `/notificacoes`                                        | chamados                            |
+| `/saude`, `/saude/usuarios`, `/saude/inventario`, `/saude/chamados` | Estado do gateway e de cada serviço |
 
 ## Como rodar
 
@@ -63,10 +64,10 @@ Para recomeçar do zero (apaga os bancos): `docker compose down -v`.
 
 ### Contas de exemplo (senha `Helpdesk2026`)
 
-| E-mail | Perfil |
-|---|---|
-| `carla@empresa.com` | técnica (fluxo completo) |
-| `ana@empresa.com` | solicitante (só vê os próprios chamados) |
+| E-mail              | Perfil                                   |
+| ------------------- | ---------------------------------------- |
+| `carla@empresa.com` | técnica (fluxo completo)                 |
+| `ana@empresa.com`   | solicitante (só vê os próprios chamados) |
 
 ## Decisões de projeto
 
@@ -110,4 +111,4 @@ docker-compose.yml
 
 ## Não implementado (bônus)
 
-Eventos em fila com serviço de Notificações separado, testes por serviço no GitHub Actions e rota `GET /saude` em todos os serviços.
+Eventos em fila com serviço de Notificações separado e testes por serviço no GitHub Actions.
