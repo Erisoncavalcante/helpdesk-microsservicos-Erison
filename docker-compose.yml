@@ -1,8 +1,24 @@
 services:
-  helpdesk:
-    build: .
+  # Único serviço com porta publicada: tudo entra pelo gateway
+  gateway:
+    build: ./servicos/gateway
     ports:
       - "127.0.0.1:8000:8000"
+    depends_on:
+      - usuarios
+      - inventario
+      - helpdesk
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  # Monólito: por enquanto ainda atende /chamados e /notificacoes (sem porta para fora)
+  helpdesk:
+    build: .
     env_file:
       - path: .env
         required: false
@@ -21,8 +37,6 @@ services:
   usuarios:
     build: ./servicos/usuarios
     env_file: .env
-    ports:
-      - "127.0.0.1:8002:8000"   # TEMPORÁRIO, só para testar
     volumes:
       - dados_usuarios:/dados
     read_only: true
@@ -36,8 +50,6 @@ services:
   inventario:
     build: ./servicos/inventario
     env_file: .env
-    ports:
-      - "127.0.0.1:8001:8000"   # TEMPORÁRIO, só para testar
     volumes:
       - dados_inventario:/dados
     read_only: true
