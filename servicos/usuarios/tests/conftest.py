@@ -1,0 +1,60 @@
+"""Configuração dos testes do serviço de Usuários: banco novo, em memória, a cada teste."""
+import os
+
+# Precisa vir antes de importar o app (o config.py lê estas variáveis ao carregar)
+os.environ.setdefault("JWT_SEGREDO", "segredo-so-para-os-testes-com-mais-de-32-caracteres")
+os.environ["DATABASE_URL"] = "sqlite://"
+os.environ["DADOS_EXEMPLO"] = "0"
+
+import pytest  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+from sqlalchemy import create_engine  # noqa: E402
+from sqlalchemy.orm import sessionmaker  # noqa: E402
+from sqlalchemy.pool import StaticPool  # noqa: E402
+
+from app.auth import limite  # noqa: E402
+from app.database import Base, get_db  # noqa: E402
+from app.main import app  # noqa: E402
+from app.usuarios import servico as usuarios  # noqa: E402
+from app.usuarios.esquemas import UsuarioCriar  # noqa: E402
+
+SENHA = "Senha123"
+
+
+@pytest.fixture
+def sessao():
+    limite.limpar_tudo()
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    Sessao = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+    def db_de_teste():
+        db = Sessao()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = db_de_teste
+    yield Sessao
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def cliente(sessao):
+    with TestClient(app) as c:
+        yield c
+
+
+@pytest.fixture
+def contas(sessao, cliente):
+    """Cria um admin, dois solicitantes e uma técnica, e devolve o cabeçalho de login de cada um."""
+    with sessao() as db:
+        for nome, email, perfil in [("Admin", "admin@x.com", "admin"), ("Ana", "ana@x.com", "solicitante"),
+                                    ("Bia", "bia@x.com", "solicitante"), ("Carla", "carla@x.com", "tecnico")]:
+            usuarios.criar(db, UsuarioCriar(nome=nome, email=email, perfil=perfil, senha=SENHA))
+    resultado = {}
+    for apelido in ("admin", "ana", "bia", "carla"):
+        r = cliente.post("/auth/login", json={"email": f"{apelido}@x.com", "senha": SENHA}).json()
+        resultado[apelido] = {"headers": {"Authorization": f"Bearer {r['access_token']}"}, "id": r["usuario"]["id"]}
+    return resultado
