@@ -1,155 +1,144 @@
-# HelpDesk TI · versão monolítica
-
-Sistema de chamados de TI (no estilo de um GLPI simplificado), feito em **Python + FastAPI**.
-É a aplicação base da atividade de **Arquitetura de Software**: hoje ela é um **monólito**;
-a missão de cada aluno é transformá-la em **microsserviços** (veja [DESAFIO.md](DESAFIO.md)).
-
-## Telas do sistema
-
-![Demonstração: entrar, abrir, atribuir, resolver e fechar um chamado](docs/demo.gif)
-
-| Login | Painel do técnico | Chamado resolvido |
-|---|---|---|
-| ![Login](docs/01-login.png) | ![Painel](docs/02-painel.png) | ![Chamado resolvido](docs/03-chamado-resolvido.png) |
-
-## O que o sistema faz
-
-- **Login** com e-mail e senha; cada pessoa vê e faz só o que o seu perfil permite.
-- Cadastra **usuários** e **equipamentos** (inventário de TI).
-- **Abre chamados** com prioridade e calcula o prazo de atendimento (SLA): crítica 4 h, alta 8 h, média 24 h, baixa 72 h.
-- **Atribui** chamados a técnicos, controla o **status** e aceita **comentários**.
-- Registra **notificações** quando um chamado é aberto, atribuído ou resolvido.
-- Mostra um **painel** com totais por status e chamados atrasados.
-
-### Perfis e permissões
-
-| Ação | Solicitante | Técnico | Administrador |
-|---|:-:|:-:|:-:|
-| Abrir chamado | ✅ | ✅ | ✅ |
-| Ver chamados | só os seus | todos | todos |
-| Comentar | nos seus | todos | todos |
-| Atribuir e resolver | ❌ | ✅ | ✅ |
-| Fechar ou reabrir um chamado resolvido | os seus | ✅ | ✅ |
-| Cadastrar equipamentos | ❌ | ✅ | ✅ |
-| Cadastrar usuários | ❌ | ❌ | ✅ |
-
-## Como rodar
-
-**Com Docker**
-
-```bash
-docker compose up --build
-```
-
-**Sem Docker** (Python 3.11 ou mais novo)
-
-```bash
-pip install -r requirements-dev.txt
-uvicorn app.main:app --reload
-```
-
-Depois abra:
-
-- Tela do HelpDesk: http://localhost:8000
-- Documentação da API (Swagger): http://localhost:8000/docs (clique em **Authorize** e cole o token do login)
-
-### Contas de acesso
-
-Não é preciso criar conta: o sistema já começa com estes usuários.
-Todos usam a senha **`Helpdesk2026`**.
-
-| E-mail | Perfil | O que pode fazer |
-|---|---|---|
-| `admin@empresa.com` | Administrador | Tudo, inclusive cadastrar usuários |
-| `carla@empresa.com` | Técnica | Ver todos os chamados, atribuir, resolver e cadastrar equipamentos |
-| `diego@empresa.com` | Técnico | O mesmo que a Carla |
-| `ana@empresa.com` | Solicitante | Abrir chamados e ver só os próprios |
-| `bruno@empresa.com` | Solicitante | O mesmo que a Ana |
-
-Dicas:
-
-- Para testar o fluxo completo (abrir, atribuir, resolver e fechar), entre como **Carla**.
-- Para testar as permissões, entre como **Ana**: ela não vê os chamados do Bruno.
-- Para trocar a senha de todas as contas, defina `SENHA_EXEMPLO` no arquivo `.env`.
-- As contas só são criadas quando o sistema sobe com `DADOS_EXEMPLO=1` (o padrão), e só na primeira vez, com o banco vazio.
-
-> Estas contas têm senha conhecida e servem só para aula. Em produção, use `DADOS_EXEMPLO=0`.
-
-### Configuração
-
-Copie `.env.example` para `.env` e ajuste. O principal é o `JWT_SEGREDO`, que assina os logins.
-O arquivo `.env` nunca deve ir para o GitHub (ele já está no `.gitignore`).
-
-## Testes
-
-```bash
-pytest -q
-```
-
-São 36 testes, incluindo **testes de segurança** (`tests/test_seguranca.py`): login, token falso ou vencido,
-bloqueio de tentativas, permissões por perfil, campos extras e limites de tamanho.
-A cada envio ao GitHub, os testes rodam sozinhos e o `pip-audit` confere se alguma dependência tem falha conhecida.
-
-## Segurança
-
-Veja o que está protegido e o que fazer antes de usar em produção em [SECURITY.md](SECURITY.md).
-
-## Arquitetura atual (monólito)
-
-Uma aplicação, um banco e uma implantação. O código é dividido em **módulos**, e cada módulo
-só usa a **porta pública** do outro (o arquivo `servico.py`).
-
+HelpDesk TI em microsserviços
+Aluno: Erison Cavalcante · Disciplina: Arquitetura de Software · Prof. Filipe Cavalcante
+🎥 Vídeo de demonstração: COLE_AQUI_O_LINK_DO_VIDEO
+![Testes e segurança](https://github.com/Erisoncavalcante/helpdesk-microsservicos-Erison/actions/workflows/testes.yml/badge.svg)
+Sistema de chamados de TI (parecido com um GLPI simplificado), feito em Python + FastAPI.
+Ele começou como um monólito (uma aplicação, um banco, uma implantação) e foi dividido em
+microsserviços: cada parte do sistema virou um projeto próprio, com seu próprio contêiner e seu próprio banco.
+Todas as funcionalidades continuam as mesmas: login, cadastro de usuários e equipamentos,
+chamados com prazo de SLA, atribuição, mudança de status, comentários, notificações e painel.
+Arquitetura
 ```mermaid
 flowchart TB
-    Tela[Tela do HelpDesk] --> API
-    subgraph API[Aplicação HelpDesk · um processo]
-        Auth[auth]
-        Usuarios[usuarios]
-        Inventario[inventario]
-        Chamados[chamados]
-        Notificacoes[notificacoes]
-        Auth -->|confere a senha| Usuarios
-        Chamados -->|chamada de função| Usuarios
-        Chamados -->|chamada de função| Inventario
-        Chamados -->|chamada de função| Notificacoes
-    end
-    API --> BD[(Banco único)]
+    Tela[Tela do HelpDesk<br/>navegador] -->|HTTP :8000| Gateway[API Gateway<br/>único ponto de entrada]
+    Gateway -->|/auth, /usuarios| SU[Serviço de Usuários<br/>login e cadastro]
+    Gateway -->|/ativos| SI[Serviço de Inventário<br/>equipamentos]
+    Gateway -->|/chamados, /notificacoes| SC[Serviço de Chamados<br/>chamados e avisos]
+    SC -->|"HTTP GET /usuarios/{id}<br/>(timeout 3s)"| SU
+    SC -->|"HTTP GET /ativos/{id}<br/>(timeout 3s)"| SI
+    SU --> BU[(usuarios.db)]
+    SI --> BI[(inventario.db)]
+    SC --> BC[(chamados.db)]
 ```
-
+Serviço	Pasta	Rotas	Banco
+Gateway	`servicos/gateway`	serve a tela (`/`) e repassa as rotas abaixo; `GET /saude` mostra quem está no ar	nenhum
+Usuários	`servicos/usuarios`	`/auth/login`, `/auth/eu`, `/usuarios`	`usuarios.db`
+Inventário	`servicos/inventario`	`/ativos`	`inventario.db`
+Chamados	`servicos/chamados`	`/chamados`, `/chamados/painel`, `/notificacoes`	`chamados.db`
+Cada serviço também tem `GET /saude`.
+Como o login funciona entre os serviços
+```mermaid
+sequenceDiagram
+    actor Carla as Carla (técnica)
+    participant G as Gateway
+    participant U as Usuários
+    participant C as Chamados
+    participant I as Inventário
+    Carla->>G: POST /auth/login
+    G->>U: repassa
+    U-->>Carla: token JWT (id + perfil), assinado com JWT_SEGREDO
+    Carla->>G: POST /chamados (Authorization: Bearer token)
+    G->>C: repassa com o token
+    C->>C: confere a assinatura do token
+    C->>I: GET /ativos/1 (repassa o mesmo token)
+    I->>I: confere a assinatura do token
+    I-->>C: 200 (equipamento existe)
+    C-->>Carla: 201 chamado aberto
 ```
-app/
-├── main.py            # junta os módulos e sobe a aplicação
-├── config.py          # configurações (variáveis de ambiente)
-├── database.py        # conexão com o banco único
-├── seguranca_http.py  # cabeçalhos de segurança e limite de tamanho
-├── erros.py           # erros de negócio
-├── dados_exemplo.py   # dados iniciais (só para aula)
-├── web/               # tela: index.html, app.js, estilo.css
-├── auth/              # senhas (scrypt), tokens JWT, login, limite de tentativas
-├── usuarios/          # modelos, esquemas, repositorio, servico (público), rotas
-├── inventario/
-├── chamados/          # depende de usuarios, inventario e notificacoes
-└── notificacoes/
+Como rodar
+Pré-requisito: Docker com Docker Compose.
+```bash
+# 1. Crie o arquivo de configuração
+cp .env.example .env
+
+# 2. Gere o segredo dos tokens e cole no .env, na linha JWT_SEGREDO=
+python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+
+# 3. Suba tudo
+docker compose up --build
 ```
-
-Em `app/chamados/servico.py`, os comentários `# vira chamada HTTP` e `# vira evento` marcam
-os pontos que mudam quando o sistema for separado.
-
-## Rotas principais
-
-Todas exigem login, exceto `/auth/login` e `/saude`.
-
-| Método | Rota | O que faz | Quem pode |
-|---|---|---|---|
-| POST | `/auth/login` | Entra e recebe o token | Todos |
-| GET | `/auth/eu` | Dados de quem está logado | Logado |
-| POST | `/usuarios` | Cria usuário | Admin |
-| GET | `/usuarios` | Lista usuários (sem e-mail) | Logado |
-| POST / GET | `/ativos` | Cria e lista equipamentos | Técnico e admin / logado |
-| POST | `/chamados` | Abre chamado em nome de quem está logado | Logado |
-| GET | `/chamados` | Lista chamados | Logado (solicitante vê só os seus) |
-| GET | `/chamados/painel` | Totais por status e atrasados | Logado |
-| PATCH | `/chamados/{id}/atribuir` | Atribui a um técnico | Técnico e admin |
-| PATCH | `/chamados/{id}/status` | Muda o status | Técnico e admin (solicitante: fechar ou reabrir) |
-| POST | `/chamados/{id}/comentarios` | Comenta no chamado | Envolvidos |
-| GET | `/notificacoes` | Minhas notificações | Logado |
+Abra http://localhost:8000. Contas de exemplo (senha `Helpdesk2026`):
+E-mail	Perfil
+`carla@empresa.com`	técnica (fluxo completo)
+`diego@empresa.com`	técnico
+`ana@empresa.com`	solicitante (só vê os próprios chamados)
+`bruno@empresa.com`	solicitante
+`admin@empresa.com`	administrador
+Outros comandos úteis:
+```bash
+docker compose ps                    # ver os contêineres no ar
+docker compose stop inventario       # simular a queda de um serviço
+docker compose start inventario      # religar
+docker compose down -v               # apagar tudo, inclusive os bancos
+```
+Testes
+Cada serviço tem os próprios testes (inclusive os de segurança), que rodam no GitHub Actions a cada push,
+um job por serviço. Para rodar localmente:
+```bash
+for s in usuarios inventario chamados gateway; do
+  (cd servicos/$s && pip install -q -r requirements-dev.txt && python -m pytest -q) || break
+done
+```
+Decisões tomadas
+Separação aos poucos (padrão Strangler Fig). Separei um serviço por vez, com um commit para cada:
+primeiro o Inventário (não depende de ninguém), depois Usuários, depois o Gateway e por último
+Chamados. Enquanto Chamados ainda não estava separado, o gateway mandava `/chamados` para o monólito.
+Assim a tela funcionou do começo ao fim do trabalho, e eu podia testar a cada passo.
+Token JWT conferido em cada serviço. Só o serviço de Usuários cria tokens. O token leva o id e o
+perfil do usuário e é assinado com `JWT_SEGREDO`. Os outros serviços conferem a assinatura sozinhos,
+sem precisar perguntar ao serviço de Usuários a cada requisição.
+Custo: se um usuário for desativado, o token dele continua valendo até expirar (60 minutos).
+Segredo obrigatório e fora do código. O `JWT_SEGREDO` vem do `.env`, que não vai para o GitHub.
+No monólito, sem o segredo, era gerado um aleatório a cada início. Com vários serviços isso quebraria
+o login (cada um teria um segredo diferente), então agora nenhum serviço sobe sem ele.
+Código de autenticação copiado em cada serviço. Preferi uma pequena duplicação (o `auth.py`) a uma
+biblioteca compartilhada, para manter os serviços realmente independentes: cada um pode ser alterado e
+publicado sozinho.
+Sem chaves estrangeiras entre serviços. Chamados guarda só o `solicitante_id`, o `tecnico_id` e o
+`ativo_id`. Quem confere se eles existem é o próprio serviço de Chamados, chamando os outros por HTTP na
+hora de abrir ou atribuir o chamado. A chave estrangeira entre `comentarios` e `chamados` continua, porque
+as duas tabelas estão no mesmo serviço.
+Tratamento de falhas. As chamadas de Chamados para os outros serviços têm timeout de 3 segundos.
+Se Usuários ou Inventário estiverem fora do ar ou lentos, Chamados responde 503 com uma mensagem clara
+("O serviço de inventário está fora do ar") em vez de travar, e o resto continua funcionando
+(listar chamados, abrir chamado sem equipamento, comentar). O gateway faz o mesmo (timeout de 5 segundos).
+Repasse do token. Quando Chamados chama Usuários ou Inventário, ele repassa o token do usuário
+(`Authorization`). Assim, os outros serviços também conferem quem está pedindo.
+Gateway próprio em FastAPI + httpx. Ele escolhe o serviço pelo começo do caminho, repassa os
+cabeçalhos e também serve a tela, que continua no mesmo endereço (porta 8000).
+IP real no limite de tentativas de login. Atrás do gateway, todas as requisições chegariam com o IP
+do gateway, e um único atacante poderia bloquear o login de todos. O gateway envia o IP real no cabeçalho
+`X-Forwarded-For` (descartando o valor que veio do cliente, para ninguém falsificar) e o serviço de Usuários
+lê esse cabeçalho (`--proxy-headers`).
+Só o gateway fica exposto. No `docker-compose.yml`, apenas o gateway tem `ports:`. Os serviços e os
+bancos só são acessíveis dentro da rede do Docker, onde se chamam pelo nome (`http://usuarios:8000`).
+Todos os contêineres rodam sem root, com o sistema de arquivos somente leitura e sem privilégios extras.
+Notificações dentro de Chamados. Os avisos (`ChamadoAberto`, `ChamadoAtribuido`, `ChamadoResolvido`)
+continuam sendo gravados pelo serviço de Chamados, no banco dele.
+Dados de exemplo com ids fixos. Cada serviço cria os próprios dados de exemplo. Como os chamados de
+exemplo apontam para usuários e equipamentos de outros serviços, usei ids fixos (Ana = 2, Carla = 4,
+desktop = 1...). Os chamados de exemplo são gravados direto no banco, sem chamar os outros serviços,
+porque na hora em que o serviço sobe os outros podem ainda não estar no ar.
+Testes sem subir os outros serviços. Os testes de Chamados trocam os serviços de Usuários e Inventário
+por uma "rede falsa", que simula respostas, recurso inexistente, serviço fora do ar e lentidão (timeout).
+O que mudou em relação ao monólito
+	Monólito	Microsserviços
+Implantação	tudo junto	cada serviço pode ser publicado sozinho
+Banco	um só, com chaves estrangeiras	um por serviço, ligados só por ids
+Conversa entre módulos	chamada de função	chamada HTTP pela rede
+Se uma parte cai	cai tudo	só aquela parte fica indisponível
+Login	confere no banco	cada serviço confere o token
+Ficou melhor: cada time pode mudar e publicar o seu serviço sem mexer nos outros. Uma falha no Inventário
+não derruba os chamados. Cada serviço pode ser escalado separadamente.
+Ficou mais difícil: agora existe a rede no meio. Uma chamada pode demorar ou falhar, então foi preciso
+tratar timeout e erro 503. Não existe mais chave estrangeira garantindo que um id existe. Há mais contêineres
+para subir e monitorar. O segredo precisa ser o mesmo em todos os serviços. E depurar um erro exige olhar os
+logs de vários serviços.
+Segurança
+O detalhamento das proteções está em SECURITY.md. Na versão em microsserviços:
+todo serviço confere o token antes de responder (testado em cada um: token adulterado, assinado com outro
+segredo, sem assinatura, vencido);
+as permissões por perfil continuam valendo (o solicitante só vê os próprios chamados);
+o token do usuário é repassado nas chamadas entre serviços;
+só o gateway publica porta; os serviços e os bancos ficam dentro do Docker;
+os segredos ficam no `.env`, fora do código.
