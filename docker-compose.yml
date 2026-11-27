@@ -7,25 +7,7 @@ services:
     depends_on:
       - usuarios
       - inventario
-      - helpdesk
-    read_only: true
-    tmpfs:
-      - /tmp
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-
-  # Monólito: por enquanto ainda atende /chamados e /notificacoes (sem porta para fora)
-  helpdesk:
-    build: .
-    env_file:
-      - path: .env
-        required: false
-    environment:
-      DADOS_EXEMPLO: ${DADOS_EXEMPLO:-1}
-    volumes:
-      - dados:/dados
+      - chamados
     read_only: true
     tmpfs:
       - /tmp
@@ -60,7 +42,20 @@ services:
     cap_drop:
       - ALL
 
+  chamados:
+    build: ./servicos/chamados
+    env_file: .env
+    volumes:
+      - dados_chamados:/dados
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
 volumes:
-  dados:
   dados_usuarios:
   dados_inventario:
+  dados_chamados:

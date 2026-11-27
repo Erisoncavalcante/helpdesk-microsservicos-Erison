@@ -5,8 +5,8 @@ import os
 SERVICOS = {
     "usuarios": os.getenv("URL_USUARIOS", "http://usuarios:8000"),
     "inventario": os.getenv("URL_INVENTARIO", "http://inventario:8000"),
-    # Por enquanto, chamados e notificações ainda estão no monólito
-    "chamados": os.getenv("URL_CHAMADOS", "http://helpdesk:8000"),
+    # Chamados também guarda as notificações
+    "chamados": os.getenv("URL_CHAMADOS", "http://chamados:8000"),
 }
 
 # Qual serviço atende cada rota (pelo primeiro pedaço do caminho)
